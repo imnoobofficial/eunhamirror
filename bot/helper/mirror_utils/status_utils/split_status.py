@@ -1,19 +1,21 @@
-# Implement By - @anasty17 (https://github.com/SlamDevs/slam-mirrorbot/commit/d888a1e7237f4633c066f7c2bbfba030b83ad616)
-# (c) https://github.com/SlamDevs/slam-mirrorbot
-# All rights reserved
-
-from .status import Status
-from bot.helper.ext_utils.bot_utils import get_readable_file_size, MirrorStatus
+from bot import LOGGER
+from bot.helper.ext_utils.bot_utils import MirrorStatus, get_readable_file_size
 
 
-class SplitStatus(Status):
-    def __init__(self, name, path, size):
+class SplitStatus:
+    def __init__(self, name, size, gid, listener):
         self.__name = name
-        self.__path = path
+        self.__gid = gid
         self.__size = size
+        self.__listener = listener
+        self.message = self.__listener.message
+        self.startTime = self.__listener.startTime
+        self.mode = self.__listener.mode
+        self.source = self.__source()
+        self.engine = "ffmpeg/split"
 
-    # The progress of Tar function cannot be tracked. So we just return dummy values.
-    # If this is possible in future,we should implement it
+    def gid(self):
+        return self.__gid
 
     def progress(self):
         return '0'
@@ -23,9 +25,6 @@ class SplitStatus(Status):
 
     def name(self):
         return self.__name
-
-    def path(self):
-        return self.__path
 
     def size(self):
         return get_readable_file_size(self.__size)
@@ -38,3 +37,19 @@ class SplitStatus(Status):
 
     def processed_bytes(self):
         return 0
+
+    def download(self):
+        return self
+
+    def cancel_download(self):
+        LOGGER.info(f'Cancelling Split: {self.__name}')
+        if self.__listener.suproc:
+            self.__listener.suproc.kill()
+        self.__listener.onUploadError('splitting stopped by user!')
+
+    def __source(self):
+        reply_to = self.message.reply_to_message
+        source = reply_to.from_user.username or reply_to.from_user.id if reply_to and \
+            not reply_to.from_user.is_bot else self.message.from_user.username \
+                or self.message.from_user.id
+        return f"<a href='{self.message.link}'>{source}</a>"

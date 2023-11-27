@@ -1,28 +1,27 @@
-import subprocess
-from bot import LOGGER, dispatcher
-from telegram import ParseMode
+from subprocess import PIPE, Popen
+
 from telegram.ext import CommandHandler
-from bot.helper.telegram_helper.filters import CustomFilters
+
+from bot import LOGGER, dispatcher
 from bot.helper.telegram_helper.bot_commands import BotCommands
+from bot.helper.telegram_helper.filters import CustomFilters
 
 
 def shell(update, context):
     message = update.effective_message
-    cmd = message.text.split(' ', 1)
+    cmd = message.text.split(maxsplit=1)
     if len(cmd) == 1:
-        message.reply_text('No command to execute was given.')
-        return
+        return message.reply_text('No command to execute was given.')
     cmd = cmd[1]
-    process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     stdout, stderr = process.communicate()
     reply = ''
     stderr = stderr.decode()
     stdout = stdout.decode()
-    if stdout:
+    if len(stdout) != 0:
         reply += f"*Stdout*\n`{stdout}`\n"
         LOGGER.info(f"Shell - {cmd} - {stdout}")
-    if stderr:
+    if len(stderr) != 0:
         reply += f"*Stderr*\n`{stderr}`\n"
         LOGGER.error(f"Shell - {cmd} - {stderr}")
     if len(reply) > 3000:
@@ -34,10 +33,12 @@ def shell(update, context):
                 filename=doc.name,
                 reply_to_message_id=message.message_id,
                 chat_id=message.chat_id)
+    elif len(reply) != 0:
+        message.reply_text(reply, parse_mode='Markdown')
     else:
-        message.reply_text(reply, parse_mode=ParseMode.MARKDOWN)
+        message.reply_text('No Reply', parse_mode='Markdown')
 
 
-SHELL_HANDLER = CommandHandler(BotCommands.ShellCommand, shell, 
-                                                  filters=CustomFilters.owner_filter, run_async=True)
+SHELL_HANDLER = CommandHandler(BotCommands.ShellCommand, shell,
+                                filters=CustomFilters.owner_filter)
 dispatcher.add_handler(SHELL_HANDLER)

@@ -1,36 +1,45 @@
-from .status import Status
-from bot.helper.ext_utils.bot_utils import MirrorStatus, get_readable_file_size, get_readable_time
+from pkg_resources import get_distribution
 
+from bot.helper.ext_utils.bot_utils import (MirrorStatus,
+                                            get_readable_file_size,
+                                            get_readable_time)
 
-class CloneStatus(Status):
-    def __init__(self, obj, size, update, gid):
-        self.cobj = obj
-        self.__csize = size
-        self.message = update.message
-        self.__cgid = gid
+engine_ = f"Google Api v{get_distribution('google-api-python-client').version}"
+
+class CloneStatus:
+    def __init__(self, obj, size, listener, gid):
+        self.__obj = obj
+        self.__size = size
+        self.__gid = gid
+        self.__listener = listener
+        self.message = listener.message
+        self.startTime = self.__listener.startTime
+        self.mode = self.__listener.mode
+        self.source = self.__source()
+        self.engine = engine_
 
     def processed_bytes(self):
-        return self.cobj.transferred_size
+        return self.__obj.transferred_size
 
     def size_raw(self):
-        return self.__csize
+        return self.__size
 
     def size(self):
-        return get_readable_file_size(self.__csize)
+        return get_readable_file_size(self.__size)
 
     def status(self):
         return MirrorStatus.STATUS_CLONING
 
     def name(self):
-        return self.cobj.name
+        return self.__obj.name
 
     def gid(self) -> str:
-        return self.__cgid
+        return self.__gid
 
     def progress_raw(self):
         try:
-            return self.cobj.transferred_size / self.__csize * 100
-        except ZeroDivisionError:
+            return self.__obj.transferred_size / self.__size * 100
+        except:
             return 0
 
     def progress(self):
@@ -40,17 +49,24 @@ class CloneStatus(Status):
         """
         :return: Download speed in Bytes/Seconds
         """
-        return self.cobj.cspeed()
+        return self.__obj.cspeed()
 
     def speed(self):
         return f'{get_readable_file_size(self.speed_raw())}/s'
 
     def eta(self):
         try:
-            seconds = (self.__csize - self.cobj.transferred_size) / self.speed_raw()
+            seconds = (self.__size - self.__obj.transferred_size) / self.speed_raw()
             return f'{get_readable_time(seconds)}'
-        except ZeroDivisionError:
+        except:
             return '-'
 
     def download(self):
-        return self.cobj
+        return self.__obj
+
+    def __source(self):
+        reply_to = self.message.reply_to_message
+        source = reply_to.from_user.username or reply_to.from_user.id if reply_to and \
+            not reply_to.from_user.is_bot else self.message.from_user.username \
+                or self.message.from_user.id
+        return f"<a href='{self.message.link}'>{source}</a>"
